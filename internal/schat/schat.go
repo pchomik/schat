@@ -16,7 +16,7 @@ type model struct {
 }
 
 func Run() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
@@ -31,7 +31,6 @@ func initialModel() model {
 		Background(lipgloss.Color("243"))
 
 	ti := textarea.New()
-	// ti.Placeholder = "Once upon a time..."
 	ti.ShowLineNumbers = false
 	ti.Prompt = ""
 
@@ -64,23 +63,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEsc:
-			if m.textarea.Focused() {
-				m.textarea.Blur()
-			}
-		case tea.KeyCtrlJ:
+		switch msg.String() {
+		case "alt+enter":
 			return m, tea.Quit
-		case tea.KeyCtrlC:
+		case "ctrl+d":
 			return m, tea.Quit
+		case "esc":
+			m.textarea.Reset()
+			return m, nil
 		default:
-			if !m.textarea.Focused() {
+			if m.textarea.Focused() {
 				cmd = m.textarea.Focus()
 				cmds = append(cmds, cmd)
 			}
 		}
 
-	// We handle errors just like any other message
 	case errMsg:
 		m.err = msg
 		return m, nil
@@ -106,6 +103,6 @@ func (m model) View() string {
 	msg := lipgloss.NewStyle().
 		Width(100).
 		MarginTop(1).
-		Render("(ctrl+enter to send, ctrl+c to quit)")
+		Render("(alt+enter to send, ctrl+d to quit)")
 	return centeredStyle.Render(ti + "\n" + msg + "\n\n")
 }
