@@ -11,39 +11,26 @@ import (
 type errMsg error
 
 type model struct {
-	textarea textarea.Model
-	err      error
+	textarea      textarea.Model
+	communication []string
+	terminalWidth int
+	sessionId     string
+	err           error
 }
 
 func Run() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	m := initialModel()
+	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func initialModel() model {
-
-	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#000")).
-		Background(lipgloss.Color("243"))
-
 	ti := textarea.New()
 	ti.ShowLineNumbers = false
 	ti.Prompt = ""
-
-	ti.FocusedStyle.Base = style
-	ti.FocusedStyle.Text = style
-	ti.FocusedStyle.CursorLine = style
-	ti.FocusedStyle.Prompt = style
-	ti.FocusedStyle.EndOfBuffer = style
-	ti.FocusedStyle.Placeholder = style
-
-	ti.BlurredStyle = ti.FocusedStyle
-
-	ti.SetWidth(98)
 	ti.SetHeight(3)
 	ti.Focus()
 
@@ -62,13 +49,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		// Store terminal width when window resizes
+		m.terminalWidth = msg.Width - 4
+		m.textarea.SetWidth(m.terminalWidth)
+
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "alt+enter":
+		switch msg.Type {
+		case tea.KeyCtrlS:
+			bodyStyle := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#838ba7")).
+				Width(m.terminalWidth + 2).
+				Padding(1)
+
+			value := m.textarea.Value()
+			if len(value) > 0 && value[len(value)-1] == '\n' {
+				value = value[:len(value)-1]
+			}
+			m.communication = append(
+				m.communication,
+				bodyStyle.Render(value),
+				"",
+			)
+			m.textarea.Reset()
+
+			// TODO: Call remote API here to get data based on the user message
+			// This is the best place because:
+			// 1. The message has just been captured and stored in m.communication
+			// 2. We have the raw user input from m.textarea.Value()
+			// 3. The Bubbletea pattern supports async operations by returning commands
+			// 4. We can return a tea.Cmd that performs the HTTP request and sends back a message with the result
+			// 5. This keeps the UI responsive while the API call is in progress
+
+		case tea.KeyCtrlQ:
 			return m, tea.Quit
-		case "ctrl+d":
-			return m, tea.Quit
-		case "esc":
+		case tea.KeyEsc:
 			m.textarea.Reset()
 			return m, nil
 		default:
@@ -89,20 +105,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#000")).
-		Background(lipgloss.Color("243")).
-		Width(100).
-		Padding(1)
+	if m.terminalWidth == 0 {
+		return "Loading ..."
+	}
 
-	centeredStyle := lipgloss.NewStyle().
-		Width(200).
-		Align(lipgloss.Center)
+	borderStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("142"))
 
-	ti := style.Render(m.textarea.View())
-	msg := lipgloss.NewStyle().
-		Width(100).
-		MarginTop(1).
-		Render("(alt+enter to send, ctrl+d to quit)")
-	return centeredStyle.Render(ti + "\n" + msg + "\n\n")
+	parts := m.communication[:]
+	parts = append(
+		parts,
+		"Your prompt:",
+		borderStyle.Render(m.textarea.View()),
+		"(ctrl+s to send, ctrl+q to quit)",
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Top, parts...)
 }
