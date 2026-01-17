@@ -3,6 +3,7 @@ package schat
 import (
 	"log"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -12,9 +13,11 @@ type errMsg error
 
 type model struct {
 	textarea      textarea.Model
+	spinner       spinner.Model
 	communication []string
 	terminalWidth int
 	sessionId     string
+	processing    bool
 	err           error
 }
 
@@ -28,6 +31,10 @@ func Run() {
 }
 
 func initialModel() model {
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#838ba7"))
+
 	ti := textarea.New()
 	ti.ShowLineNumbers = false
 	ti.Prompt = ""
@@ -36,12 +43,13 @@ func initialModel() model {
 
 	return model{
 		textarea: ti,
+		spinner:  sp,
 		err:      nil,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(textarea.Blink, spinner.Tick)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -53,6 +61,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Store terminal width when window resizes
 		m.terminalWidth = msg.Width - 4
 		m.textarea.SetWidth(m.terminalWidth)
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -73,6 +86,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				"",
 			)
 			m.textarea.Reset()
+			m.processing = true
+			m.textarea.Blur()
 
 			// TODO: Call remote API here to get data based on the user message
 			// This is the best place because:
@@ -84,7 +99,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyCtrlQ:
 			return m, tea.Quit
+		case tea.KeyCtrlL:
+			m.processing = false
+			m.communication = []string{}
+			m.textarea.Reset()
+			return m, nil
 		case tea.KeyEsc:
+			m.processing = false
 			m.textarea.Reset()
 			return m, nil
 		default:
@@ -114,7 +135,20 @@ func (m model) View() string {
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("142"))
 
+	processingStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#838ba7"))
+
 	parts := m.communication[:]
+	if m.processing {
+		parts = append(
+			parts,
+			lipgloss.JoinHorizontal(
+				lipgloss.Right, m.spinner.View(),
+				processingStyle.Render("Processing..."),
+			),
+			"",
+		)
+	}
 	parts = append(
 		parts,
 		"Your prompt:",
