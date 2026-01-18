@@ -71,7 +71,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlS:
 			bodyStyle := lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
+				Border(lipgloss.BlockBorder(), false, false, false, true).
 				BorderForeground(lipgloss.Color("#838ba7")).
 				Width(m.terminalWidth + 2).
 				Padding(1)
@@ -103,11 +103,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.processing = false
 			m.communication = []string{}
 			m.textarea.Reset()
-			return m, nil
+			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
 		case tea.KeyEsc:
 			m.processing = false
 			m.textarea.Reset()
-			return m, nil
+			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
 		default:
 			if m.textarea.Focused() {
 				cmd = m.textarea.Focus()
@@ -133,7 +133,7 @@ func (m model) View() string {
 	borderStyle := lipgloss.NewStyle().
 		Padding(0, 1).
 		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("142"))
+		BorderForeground(lipgloss.Color("#838ba7"))
 
 	processingStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#838ba7"))
