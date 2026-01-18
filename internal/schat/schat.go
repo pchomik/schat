@@ -81,13 +81,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// Store terminal width when window resizes
 		m.terminalWidth = msg.Width - 4
 		m.textarea.SetWidth(m.terminalWidth)
 
 	case providerResponse:
 		m.processing = false
-		m.providerChan = nil // Clean up channel
+		m.providerChan = nil
 
 		if msg.err != nil {
 			m.err = msg.err
@@ -108,7 +107,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var spinnerCmd tea.Cmd
 		m.spinner, spinnerCmd = m.spinner.Update(msg)
 
-		// If we are processing, keep checking the API channel
 		if m.processing && m.providerChan != nil {
 			cmds = append(cmds, waitForApiResponse(m.providerChan))
 		}
@@ -211,7 +209,6 @@ func (m model) View() string {
 	}
 	parts = append(
 		parts,
-		// textStyle.Render("Your prompt:"),
 		borderStyle.Render(m.textarea.View()),
 		textStyle.Render("| ctrl+s - send | ctrl+q - quit | ctrl+l - new | esc - clear |"),
 	)
