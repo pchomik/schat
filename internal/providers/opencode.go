@@ -39,5 +39,5 @@ func (o *OpenCodeCli) Run(request string) string {
 		return ""
 	}
 
-	return string(stdout)
+	return strings.TrimSpace(string(stdout))
 }

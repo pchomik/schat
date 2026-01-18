@@ -1,6 +1,7 @@
 package schat
 
 import (
+	"fmt"
 	"log"
 	"schat/internal/providers"
 
@@ -21,6 +22,23 @@ type model struct {
 	processing    bool
 	provider      string
 	err           error
+	providerChan  chan providerResponse
+}
+
+type providerResponse struct {
+	response string
+	err      error
+}
+
+func waitForApiResponse(ch <-chan providerResponse) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case res := <-ch:
+			return res
+		default:
+			return nil
+		}
+	}
 }
 
 func Run(provider string) {
@@ -65,10 +83,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width - 4
 		m.textarea.SetWidth(m.terminalWidth)
 
+	case providerResponse:
+		m.processing = false
+		m.providerChan = nil // Clean up channel
+
+		if msg.err != nil {
+			m.err = msg.err
+			m.communication = append(m.communication, "Error: "+msg.err.Error())
+		} else {
+			m.communication = append(
+				m.communication,
+				msg.response,
+				"",
+			)
+		}
+		cmd = m.textarea.Focus()
+		cmds = append(cmds, cmd)
+
 	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		var spinnerCmd tea.Cmd
+		m.spinner, spinnerCmd = m.spinner.Update(msg)
+
+		// If we are processing, keep checking the API channel
+		if m.processing && m.providerChan != nil {
+			cmds = append(cmds, waitForApiResponse(m.providerChan))
+		}
+
+		return m, tea.Batch(spinnerCmd, tea.Batch(cmds...))
 
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -92,10 +133,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.processing = true
 			m.textarea.Blur()
 
-			output := providers.NewOpenCodeCli().Run(value)
-			m.communication = append(m.communication, output)
-			m.processing = false
-			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
+			m.providerChan = make(chan providerResponse)
+
+			go func() {
+				switch m.provider {
+				case "opencode-cli":
+					response := providers.NewOpenCodeCli().Run(value)
+					m.providerChan <- providerResponse{response: response}
+				case "cursor":
+					response := providers.NewOpenCodeCli().Run(value)
+					m.providerChan <- providerResponse{response: response}
+				default:
+					m.providerChan <- providerResponse{err: fmt.Errorf("unknown provider: %s", m.provider)}
+				}
+
+			}()
+
+			return m, tea.Batch(waitForApiResponse(m.providerChan), m.spinner.Tick)
 
 			// TODO: Call remote API here to get data based on the user message
 			// This is the best place because:
@@ -111,11 +165,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.processing = false
 			m.communication = []string{}
 			m.textarea.Reset()
-			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
+			return m, tea.Batch(append(cmds, m.textarea.Focus(), m.spinner.Tick)...)
 		case tea.KeyEsc:
 			m.processing = false
 			m.textarea.Reset()
-			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
+			return m, tea.Batch(append(cmds, m.textarea.Focus(), m.spinner.Tick)...)
 		default:
 			if m.textarea.Focused() {
 				cmd = m.textarea.Focus()
