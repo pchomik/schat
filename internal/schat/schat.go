@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"schat/internal/providers"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -91,11 +93,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			m.communication = append(m.communication, "Error: "+msg.err.Error())
 		} else {
-			m.communication = append(
-				m.communication,
-				msg.response,
-				"",
-			)
+			msg, err := glamour.Render(msg.response, "dark")
+			if err != nil {
+				m.err = err
+				m.communication = append(m.communication, "Error: "+err.Error(), "")
+			} else {
+				m.communication = append(m.communication, strings.TrimSpace(msg), "")
+			}
 		}
 		cmd = m.textarea.Focus()
 		cmds = append(cmds, cmd)
@@ -150,15 +154,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}()
 
 			return m, tea.Batch(waitForApiResponse(m.providerChan), m.spinner.Tick)
-
-			// TODO: Call remote API here to get data based on the user message
-			// This is the best place because:
-			// 1. The message has just been captured and stored in m.communication
-			// 2. We have the raw user input from m.textarea.Value()
-			// 3. The Bubbletea pattern supports async operations by returning commands
-			// 4. We can return a tea.Cmd that performs the HTTP request and sends back a message with the result
-			// 5. This keeps the UI responsive while the API call is in progress
-
 		case tea.KeyCtrlQ:
 			return m, tea.Quit
 		case tea.KeyCtrlL:

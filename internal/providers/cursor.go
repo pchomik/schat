@@ -8,12 +8,14 @@ import (
 )
 
 type CursorCli struct {
-	cmd string
+	systemPrompt string
+	cmd          string
 }
 
 func NewCursorCli() *CursorCli {
 	return &CursorCli{
-		cmd: "cursor-agent {{.Request}}",
+		systemPrompt: "Always return output in markdown format. Do not use any tools without explicit request. ",
+		cmd:          "cursor-agent {{.Request}}",
 	}
 }
 
@@ -24,7 +26,7 @@ func (o *CursorCli) Run(request string) string {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, struct{ Request string }{Request: request}); err != nil {
+	if err := tmpl.Execute(&buf, struct{ Request string }{Request: o.systemPrompt + request}); err != nil {
 		return ""
 	}
 

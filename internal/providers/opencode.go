@@ -8,12 +8,14 @@ import (
 )
 
 type OpenCodeCli struct {
-	cmd string
+	systemPrompt string
+	cmd          string
 }
 
 func NewOpenCodeCli() *OpenCodeCli {
 	return &OpenCodeCli{
-		cmd: "bunx opencode-ai run {{.Request}}",
+		systemPrompt: "Always return output in markdown format. Do not use any tools without explicit request. ",
+		cmd:          "bunx opencode-ai run {{.Request}}",
 	}
 }
 
@@ -24,7 +26,7 @@ func (o *OpenCodeCli) Run(request string) string {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, struct{ Request string }{Request: request}); err != nil {
+	if err := tmpl.Execute(&buf, struct{ Request string }{Request: o.systemPrompt + request}); err != nil {
 		return ""
 	}
 
