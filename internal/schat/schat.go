@@ -2,6 +2,7 @@ package schat
 
 import (
 	"log"
+	"schat/internal/providers"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -18,11 +19,12 @@ type model struct {
 	terminalWidth int
 	sessionId     string
 	processing    bool
+	provider      string
 	err           error
 }
 
-func Run() {
-	m := initialModel()
+func Run(provider string) {
+	m := initialModel(provider)
 	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
@@ -30,7 +32,7 @@ func Run() {
 	}
 }
 
-func initialModel() model {
+func initialModel(provider string) model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#838ba7"))
@@ -44,6 +46,7 @@ func initialModel() model {
 	return model{
 		textarea: ti,
 		spinner:  sp,
+		provider: provider,
 		err:      nil,
 	}
 }
@@ -88,6 +91,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			m.processing = true
 			m.textarea.Blur()
+
+			output := providers.NewOpenCodeCli().Run(value)
+			m.communication = append(m.communication, output)
+			m.processing = false
+			return m, tea.Batch(append(cmds, m.textarea.Focus())...)
 
 			// TODO: Call remote API here to get data based on the user message
 			// This is the best place because:
@@ -135,6 +143,9 @@ func (m model) View() string {
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("#838ba7"))
 
+	textStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#838ba7"))
+
 	processingStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#838ba7"))
 
@@ -151,9 +162,9 @@ func (m model) View() string {
 	}
 	parts = append(
 		parts,
-		"Your prompt:",
+		// textStyle.Render("Your prompt:"),
 		borderStyle.Render(m.textarea.View()),
-		"(ctrl+s to send, ctrl+q to quit)",
+		textStyle.Render("| ctrl+s - send | ctrl+q - quit | ctrl+l - new | esc - clear |"),
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Top, parts...)
