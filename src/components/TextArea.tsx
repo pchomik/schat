@@ -6,11 +6,10 @@ import { Cursor } from './Cursor';
 
 interface TextAreaProps {
     newPromptCallback: (newPrompt: string) => void
-    resetAppCallback: () => void
 }
 
 
-export const TextArea: React.FC<TextAreaProps> = ({newPromptCallback, resetAppCallback}: TextAreaProps) => {
+export const TextArea: React.FC<TextAreaProps> = ({newPromptCallback}: TextAreaProps) => {
 	const [value, setValue] = useState('');
 
 	useInput((input, key) => {
@@ -20,7 +19,6 @@ export const TextArea: React.FC<TextAreaProps> = ({newPromptCallback, resetAppCa
             return;
         } else if (input === 'n') {
             setValue('');
-            resetAppCallback();
             return;
         } else if (key.return) {
             setValue((prev) => prev + '\n');
