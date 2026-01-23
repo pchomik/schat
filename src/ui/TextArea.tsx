@@ -9,15 +9,12 @@ interface TextAreaProps {
 }
 
 
-export const TextArea: React.FC<TextAreaProps> = ({newPromptCallback}: TextAreaProps) => {
+export const TextArea: React.FC<TextAreaProps> = React.memo(({newPromptCallback}: TextAreaProps) => {
 	const [value, setValue] = useState('');
 
 	useInput((input, key) => {
         if (key.ctrl && input === 's') {
             newPromptCallback(value);
-            setValue('');
-            return;
-        } else if (input === 'n') {
             setValue('');
             return;
         } else if (key.return) {
@@ -46,4 +43,4 @@ export const TextArea: React.FC<TextAreaProps> = ({newPromptCallback}: TextAreaP
             </Box>
         </Box>
 	);
-};
+});

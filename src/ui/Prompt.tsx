@@ -16,8 +16,7 @@ const borderStyle = {
     bottomRight: ''
 }
 
-export const Prompt: React.FC<PromptProps> = ({ value }: PromptProps) => {
-
+export const Prompt: React.FC<PromptProps> = React.memo(({ value }: PromptProps) => {
     const lines = value.split('\n');
 
     return (
@@ -33,4 +32,4 @@ export const Prompt: React.FC<PromptProps> = ({ value }: PromptProps) => {
             </Box>
         </Box>
     );
-};
+});
